@@ -44,57 +44,40 @@ function! p4checkout#ReadP4Info(filename)
    "echo p4info[1]
 endfunction
 
-function! p4checkout#FindP4Info(dirname)
-   "echo \"looking for p4 info in\"
-   "echo a:dirname
-   let files = split(globpath(a:dirname, '*'), '\n')
 
-   for file in files
-      if !isdirectory(file)
-         if fnamemodify(file, ':t') ==? "p4root.txt"
-            "echo "got match" 
-            "echo file
-            call p4checkout#ReadP4Info(file)
-         endif
-      endif
-   endfor
-
-   let newdir = fnamemodify(a:dirname, ':p:h:h')
-
-   " If we've run out of parent directories, hang our head in shame and return
-   if !(newdir ==# a:dirname)
-      call p4checkout#FindP4Info(newdir)
-   else
-      return
-   endif
-endfunction
-
-" Set a buffer-local variable to the perforce path, if this file is under the perforce root.
 function! p4checkout#IsUnderPerforce()
-   if !exists('b:p4checked')
-      "echo expand('%:p')
-      call p4checkout#FindP4Info(expand('%:p:h'))
-      if exists('b:p4repodir')
-         "echo 'replacing ' . p4localdir . ' with ' . p4repodir . ' in ' . expand('%:p')
-         let b:p4path = substitute(expand("%:p"), escape(b:p4localdir, ' \'), escape(b:p4repodir, ' \'), "")
-         let b:p4path = substitute(b:p4path, '\', '/', 'g')
-         "echo "got " . b:p4path
-      endif
-      let b:p4checked = 1
-   endif
+    if !exists('b:p4checked')
+        let local_path = fnamemodify(expand('%:p:h'), ':p')
+        let b:p4cmd = 'p4 info'
+        let p4info = split(system(b:p4cmd), '\n')
+
+        for line in p4info
+            let splitline = split(line, ': ')
+            if len(splitline) > 1 && splitline[0] == 'Client root'
+                let p4root = splitline[1]
+                if stridx(local_path, p4root) == 0
+                    let b:p4path = expand('%:p')
+                    let b:p4cmd = 'p4'
+                    let b:p4checked = 1
+                    return
+                endif
+            endif
+        endfor
+    endif
 endfunction
 
 " Confirm with the user, then checkout a file from perforce.
 function! p4checkout#P4Checkout()
+   echo "Calling underPerforce"
    call p4checkout#IsUnderPerforce()
    if exists("b:p4path")
-      call system(b:p4cmd . ' sync ' . b:p4path . ' > /dev/null')
+      "echo b:p4cmd . ' edit ' . b:p4path  
       call system(b:p4cmd . ' edit ' . b:p4path . ' > /dev/null')
-      "echo b:p4cmd . ' sync ' . b:p4path . ' > /dev/null'
       "echo b:p4cmd . ' edit ' . b:p4path . ' > /dev/null'
       if v:shell_error == 0
          set noreadonly
          edit
+         syntax enable
       endif
    endif
 endfunction
