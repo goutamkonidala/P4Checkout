@@ -48,16 +48,23 @@ endfunction
 function! p4checkout#IsUnderPerforce()
     if !exists('b:p4checked')
         let local_path = fnamemodify(expand('%:p:h'), ':p')
-        let b:p4cmd = 'p4 info'
-        let p4info = split(system(b:p4cmd), '\n')
+
+        let command = 'cd ' . local_path . ' && p4 info'
+
+        " Execute the combined command
+        let p4info = split(system(command), "\n")
+
+        " Print the output of 'p4 info' command
+        "echo p4info
 
         for line in p4info
             let splitline = split(line, ': ')
             if len(splitline) > 1 && splitline[0] == 'Client root'
                 let p4root = splitline[1]
+                "echo p4root
                 if stridx(local_path, p4root) == 0
                     let b:p4path = expand('%:p')
-                    let b:p4cmd = 'p4'
+                    let b:p4cmd = 'cd ' . p4root . ' && p4'
                     let b:p4checked = 1
                     return
                 endif
@@ -68,7 +75,7 @@ endfunction
 
 " Confirm with the user, then checkout a file from perforce.
 function! p4checkout#P4Checkout()
-   echo "Calling underPerforce"
+   "echo "Calling underPerforce"
    call p4checkout#IsUnderPerforce()
    if exists("b:p4path")
       "echo b:p4cmd . ' edit ' . b:p4path  
